@@ -1,0 +1,2 @@
+# Day 1: pure stdlib (subprocess, dataclasses, json, argparse) - no deps yet.
+# LLM SDKs (anthropic, openai, google-genai) will be pinned here in later days.
