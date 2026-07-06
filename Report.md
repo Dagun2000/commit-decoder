@@ -1,5 +1,20 @@
 # Project Git Commit Decoder Chronicles
 
+## [2026-07-06 09:54] Commit: #8ba46d3
+* **Author:** Dagun2000
+* **Original Message:** `Wire commit decoder into a git post-commit hook`
+
+### 1. What (기능적 요약)
+이번 변경은 커밋 직후 자동으로 디코더를 실행하도록 Git `post-commit` 훅을 설치하는 기능을 추가한 것이다. 새 `setup_hook.py`가 저장소의 `.git/hooks/post-commit` 파일을 생성해, 매 커밋 후 `run_decoder.py HEAD`를 자동 호출한다. 또한 디코더 실행 실패가 실제 Git 커밋을 막지 않도록 훅은 항상 성공 종료되며, `run_decoder.py`도 예외를 최상위에서 한 번 더 흡수하도록 보강되었다.
+
+### 2. How (구현 메커니즘)
+`run_decoder.py`는 기존 `main()`의 핵심 로직을 `_decode_and_commit(revision)` 헬퍼로 분리하고, `main()`은 UTF-8 설정과 인자 파싱, 그리고 광범위한 예외 보호막만 담당하도록 단순화되었다. 새 `setup_hook.py`는 표준 라이브러리만 사용해 Git 저장소 루트를 찾고, `.git/hooks` 디렉터리를 보장한 뒤 실행 가능한 `post-commit` 스크립트를 기록한다. 이 훅 스크립트는 저장소의 `.venv` Python으로 `run_decoder.py HEAD`를 실행하고, 마지막에 항상 `exit 0` 하도록 설계되어 후처리 실패를 커밋 성공 여부와 분리한다.
+
+### 3. Why (기술적 의도)
+핵심 의도는 디코더를 수동 실행에서 커밋 후 자동 실행으로 전환해 워크플로우를 자연스럽게 통합하는 것이다. 동시에 훅과 디코더 양쪽에 실패 격리를 넣어, 자동화가 개발자의 기본 Git 작업을 방해하지 않도록 안정성을 우선했다. `run_decoder.py`의 로직 분리는 CLI 진입점과 실제 처리 로직의 책임을 나눠, 훅 호출 같은 비대화형 실행 경로를 더 안전하고 재사용 가능하게 만들려는 구조적 개선으로 볼 수 있다.
+
+---
+
 ## [2026-07-06 09:43] Commit: #07a4d01
 * **Author:** Dagun2000
 * **Original Message:** `Python downgrade`
