@@ -1,2 +1,2 @@
-# Day 1: pure stdlib (subprocess, dataclasses, json, argparse) - no deps yet.
-# LLM SDKs (anthropic, openai, google-genai) will be pinned here in later days.
+openai==2.44.0
+python-dotenv==1.2.2
