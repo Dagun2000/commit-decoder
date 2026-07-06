@@ -20,6 +20,7 @@ from stage1_skeleton import extract_skeleton
 from stage2_report import generate_report
 
 _SHORT_HASH_LENGTH = 7
+AI_DOCS_PREFIX = "[AI-DOCS]"
 
 
 class PipelineError(Exception):
@@ -48,18 +49,27 @@ def format_report_entry(commit: CommitRecord, body: str) -> str:
     author_name = commit.author.split(" <", 1)[0]
 
     header = (
-        f"## [{timestamp:%Y-%m-%d %H:%M:%S}] Commit: #{short_hash}\n"
+        f"## [{timestamp:%Y-%m-%d %H:%M}] Commit: #{short_hash}\n"
         f"* **Author:** {author_name}\n"
         f"* **Original Message:** `{subject}`\n"
     )
-    return f"{header}\n{body}"
+    return f"{header}\n{body.strip()}\n\n---\n"
 
 
-def run(revision: str) -> str:
+def run(revision: str) -> tuple[CommitRecord, str] | None:
+    """Run the full extract -> Stage 1 -> Stage 2 pipeline for a commit.
+
+    Returns None (skipping all LLM calls) if the commit's message already
+    carries the AI_DOCS_PREFIX - that's the guardrail against the agent
+    re-processing its own auto-committed Report.md updates.
+    """
     try:
         commit = extract_commit(revision)
     except CommitExtractionError as exc:
         raise PipelineError(f"Commit extraction failed: {exc}") from exc
+
+    if commit.message.startswith(AI_DOCS_PREFIX):
+        return None
 
     config = get_llm_client()
 
@@ -79,7 +89,7 @@ def run(revision: str) -> str:
     except OpenAIError as exc:
         raise PipelineError(f"Stage 2 (report generation) failed: {exc}") from exc
 
-    return format_report_entry(commit, body)
+    return commit, format_report_entry(commit, body)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -100,12 +110,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        report = run(args.revision)
+        result = run(args.revision)
     except (PipelineError, LLMConfigError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
-    print(report)
+    if result is None:
+        print(
+            f"Skipped: commit message already has an {AI_DOCS_PREFIX} prefix.",
+            file=sys.stderr,
+        )
+        return 0
+
+    _commit, entry = result
+    print(entry)
     return 0
 
 
