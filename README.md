@@ -114,3 +114,5 @@ an error, it prints a warning and the hook still exits 0.
 
 `run_decoder.py [hash]` can also be run by hand (default: `HEAD`), which is
 useful for decoding a commit made before the hook was installed.
+
+<!-- hook test from PowerShell -->
