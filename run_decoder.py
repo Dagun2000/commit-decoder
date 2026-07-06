@@ -5,10 +5,11 @@ with an [AI-DOCS] tag.
 
 Skips entirely (no LLM calls, no writes, no commit) if the target commit's
 message already carries the AI_DOCS_PREFIX - see pipeline.run(). That
-guardrail is what stops a post-commit hook (wired up next session) from
-re-triggering on its own auto-committed Report.md updates.
+guardrail is what stops the post-commit hook from re-triggering on its own
+auto-committed Report.md updates.
 
-Run manually for now:
+Invoked automatically by .git/hooks/post-commit (installed via
+setup_hook.py) after every commit. Can also be run manually:
     python run_decoder.py [hash]
 """
 
@@ -59,6 +60,31 @@ def _commit_report(short_hash: str) -> None:
     print(f"Committed Report.md as '{AI_DOCS_PREFIX} {short_hash}'.")
 
 
+def _decode_and_commit(revision: str) -> int:
+    try:
+        result = run_pipeline(revision)
+    except (PipelineError, LLMConfigError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    if result is None:
+        print(f"Skipped: commit message already has an {AI_DOCS_PREFIX} prefix.")
+        return 0
+
+    commit, entry = result
+
+    try:
+        top_append_entry(REPORT_PATH, entry)
+    except OSError as exc:
+        print(f"Error: failed to write {REPORT_PATH}: {exc}", file=sys.stderr)
+        return 1
+
+    short_hash = commit.commit_hash[:7]
+    print(f"Report.md updated for commit #{short_hash}.")
+    _commit_report(short_hash)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
@@ -75,29 +101,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        result = run_pipeline(args.revision)
-    except (PipelineError, LLMConfigError) as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        return _decode_and_commit(args.revision)
+    except Exception as exc:
+        # Last-resort safety net: the post-commit hook that calls this
+        # script must never let an unexpected bug here look like a broken
+        # commit. The hook itself also forces exit 0, but a clean message
+        # beats a raw traceback either way.
+        print(f"Error: unexpected failure in run_decoder.py: {exc}", file=sys.stderr)
         return 1
-
-    if result is None:
-        print(
-            f"Skipped: commit message already has an {AI_DOCS_PREFIX} prefix.",
-        )
-        return 0
-
-    commit, entry = result
-
-    try:
-        top_append_entry(REPORT_PATH, entry)
-    except OSError as exc:
-        print(f"Error: failed to write {REPORT_PATH}: {exc}", file=sys.stderr)
-        return 1
-
-    short_hash = commit.commit_hash[:7]
-    print(f"Report.md updated for commit #{short_hash}.")
-    _commit_report(short_hash)
-    return 0
 
 
 if __name__ == "__main__":

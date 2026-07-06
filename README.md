@@ -6,10 +6,9 @@ and auto-committed with an `[AI-DOCS]` guardrail tag.
 
 ## Status
 
-Day 2: two-stage LLM pipeline (skeleton extraction -> report generation)
-runs end-to-end and prints the report to stdout. No Report.md writing and
-no auto-commit yet, and the post-commit hook itself hasn't been built —
-those land in later days.
+Day 4: the full pipeline (extract -> Stage 1 -> Stage 2 -> top-append to
+Report.md -> auto-commit with `[AI-DOCS]`) is wired into a git post-commit
+hook and runs automatically after every commit.
 
 ## Requirements
 
@@ -19,13 +18,25 @@ those land in later days.
 ## Setup
 
 ```
-python -m venv venv
-venv\Scripts\activate        # Windows
+python -m venv .venv
+.venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 ```
 
 Copy `.env.example` to `.env` and fill in the values for your provider (see
 below).
+
+Then, once per clone, install the git hook so the agent runs automatically
+after every commit:
+
+```
+python setup_hook.py
+```
+
+`.git/hooks/` isn't tracked by git, so this is a one-time manual step after
+cloning (or after moving the repo to a new machine). It's safe to re-run
+any time - it always overwrites the hook cleanly rather than duplicating
+it.
 
 ## Running the extractor standalone
 
@@ -85,3 +96,21 @@ The pipeline can run entirely against a local model through
 
 If Ollama isn't running, the pipeline fails fast with a clear error
 telling you to start it — it won't hang or retry silently.
+
+## Automatic decoding on every commit
+
+Once `setup_hook.py` has been run, every `git commit` automatically
+triggers `run_decoder.py HEAD` afterward, which:
+
+1. Skips entirely (no API calls, no writes) if the commit's message
+   already has an `[AI-DOCS]` prefix - this is what stops the hook from
+   re-triggering on its own auto-commits
+2. Otherwise runs the full pipeline and top-appends the resulting entry to
+   `Report.md` (newest first)
+3. Commits `Report.md` with the message `[AI-DOCS] <short-hash>`
+
+This never blocks or fails your actual commit - if the decoder script hits
+an error, it prints a warning and the hook still exits 0.
+
+`run_decoder.py [hash]` can also be run by hand (default: `HEAD`), which is
+useful for decoding a commit made before the hook was installed.
