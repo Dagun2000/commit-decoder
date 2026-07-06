@@ -97,6 +97,19 @@ The pipeline can run entirely against a local model through
 If Ollama isn't running, the pipeline fails fast with a clear error
 telling you to start it — it won't hang or retry silently.
 
+### Choosing the report language
+
+By default the What/How/Why report is written in Korean. To get English
+output instead, set in `.env`:
+
+```
+REPORT_LANGUAGE=en
+```
+
+Valid values are `ko` (default) and `en`. This applies to both the OpenAI
+and local providers, and to the `[AI-DOCS]` reports auto-committed by the
+post-commit hook.
+
 ## Automatic decoding on every commit
 
 Once `setup_hook.py` has been run, every `git commit` automatically

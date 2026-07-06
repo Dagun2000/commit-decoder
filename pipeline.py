@@ -82,7 +82,11 @@ def run(revision: str) -> tuple[CommitRecord, str] | None:
 
     try:
         body = generate_report(
-            skeleton, commit.message, config.client, config.stage2_model
+            skeleton,
+            commit.message,
+            config.client,
+            config.stage2_model,
+            config.language,
         )
     except APIConnectionError as exc:
         raise PipelineError(_connection_hint(config)) from exc

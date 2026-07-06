@@ -25,6 +25,9 @@ _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434/v1"
 _LOCAL_MAX_RETRIES = 0
 _LOCAL_TIMEOUT_SECONDS = 10.0
 
+_VALID_REPORT_LANGUAGES = {"ko", "en"}
+_DEFAULT_REPORT_LANGUAGE = "ko"
+
 
 class LLMConfigError(Exception):
     """Raised when the configured provider is missing required setup."""
@@ -36,18 +39,32 @@ class LLMConfig:
     stage1_model: str
     stage2_model: str
     provider: str
+    language: str
 
 
 def get_llm_client() -> LLMConfig:
     provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+    language = _report_language()
 
     if provider == "openai":
-        return _openai_config()
-    if provider == "local":
-        return _local_config()
-    raise LLMConfigError(
-        f"Unknown LLM_PROVIDER '{provider}' (expected 'openai' or 'local')"
-    )
+        config = _openai_config()
+    elif provider == "local":
+        config = _local_config()
+    else:
+        raise LLMConfigError(
+            f"Unknown LLM_PROVIDER '{provider}' (expected 'openai' or 'local')"
+        )
+    config.language = language
+    return config
+
+
+def _report_language() -> str:
+    language = os.getenv("REPORT_LANGUAGE", _DEFAULT_REPORT_LANGUAGE).strip().lower()
+    if language not in _VALID_REPORT_LANGUAGES:
+        raise LLMConfigError(
+            f"Unknown REPORT_LANGUAGE '{language}' (expected 'ko' or 'en')"
+        )
+    return language
 
 
 def _openai_config() -> LLMConfig:
@@ -62,6 +79,7 @@ def _openai_config() -> LLMConfig:
         stage1_model=_OPENAI_STAGE1_MODEL,
         stage2_model=_OPENAI_STAGE2_MODEL,
         provider="openai",
+        language=_DEFAULT_REPORT_LANGUAGE,
     )
 
 
@@ -85,4 +103,5 @@ def _local_config() -> LLMConfig:
         stage1_model=stage1_model,
         stage2_model=stage2_model,
         provider="local",
+        language=_DEFAULT_REPORT_LANGUAGE,
     )
